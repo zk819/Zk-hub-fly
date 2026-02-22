@@ -1,7 +1,3 @@
--- ========== ZK HUB ULTRA ==========
--- PARTE 1 DE 5 - Serviços, Configurações e Wall System
-
--- Serviços
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -10,51 +6,35 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Configurações iniciais
 local Config = {
-    -- Combat Core
     WallSystem = true,
     AntiRagdoll = true,
     AntiItem = true,
     GodMode = false,
-
-    -- Advanced Movement
     InfiniteJump = true,
     Float = false,
     FloatHeight = 3,
-
-    -- Speed Engine
     SpeedHack = true,
     SpeedValue = 110,
-
-    -- ESP Matrix
     ESPMaster = false,
     ESPBoxes = true,
     ESPNames = true,
     ESPDistance = true,
     ESPTeamColor = true,
-
-    -- Fly
     FlyEnabled = false,
-
-    -- Extras
     SidebarRetract = false,
     Notifications = true,
     SoundEffects = false,
 }
 
--- Variáveis para FPS
 local FPS = 60
 RunService.RenderStepped:Connect(function()
     FPS = math.floor(1 / RunService.RenderStepped:Wait())
 end)
 
--- ========== WALL SYSTEM ==========
 local originalTransparency = {}
 local function isPlayerBase(obj)
-    if not (obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("UnionOperation")) then
-        return false
-    end
+    if not (obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("UnionOperation")) then return false end
     local n = obj.Name:lower()
     local p = obj.Parent and obj.Parent.Name:lower() or ""
     return n:find("base") or n:find("claim") or p:find("base") or p:find("claim")
@@ -82,14 +62,8 @@ end)
 
 player.CharacterAdded:Connect(function()
     task.wait(0.5)
-    if Config.WallSystem then
-        applyWallSystem(true)
-    end
+    if Config.WallSystem then applyWallSystem(true) end
 end)
--- ========== ZK HUB ULTRA ==========
--- PARTE 2 DE 5 - ESP, Anti-Ragdoll/Anti-Item e God Mode
-
--- ========== ESP MATRIX ==========
 local espCache = {}
 local function createESP(plr)
     local esp = {
@@ -123,36 +97,26 @@ local function updateESP()
         end
         return
     end
-
     local camera = Workspace.CurrentCamera
     local myPos = camera.CFrame.Position
-
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local root = plr.Character.HumanoidRootPart
             local pos, onScreen = camera:WorldToViewportPoint(root.Position)
             local dist = (root.Position - myPos).Magnitude
-
             local esp = espCache[plr]
-            if not esp then
-                createESP(plr)
-                esp = espCache[plr]
-            end
-
+            if not esp then createESP(plr) esp = espCache[plr] end
             if onScreen then
                 local size = Vector2.new(2000 / dist, 3000 / dist)
                 local topLeft = Vector2.new(pos.X - size.X/2, pos.Y - size.Y/2)
                 local bottomRight = Vector2.new(pos.X + size.X/2, pos.Y + size.Y/2)
-
                 esp.box.Visible = Config.ESPBoxes
                 esp.box.From = topLeft
                 esp.box.To = bottomRight
                 esp.box.Color = Config.ESPTeamColor and plr.TeamColor.Color or Color3.new(1,1,1)
-
                 esp.name.Visible = Config.ESPNames
                 esp.name.Position = Vector2.new(pos.X, topLeft.Y - 18)
                 esp.name.Text = plr.Name
-
                 esp.dist.Visible = Config.ESPDistance
                 esp.dist.Position = Vector2.new(pos.X, bottomRight.Y + 4)
                 esp.dist.Text = string.format("%.1f m", dist)
@@ -164,10 +128,8 @@ local function updateESP()
         end
     end
 end
-
 RunService.RenderStepped:Connect(updateESP)
 
--- ========== ANTI-RAGDOLL + ANTI-ITEM ==========
 local Frozen = false
 local DisabledRemotes = {}
 local RemoteWatcher
@@ -204,11 +166,8 @@ end
 
 local function RestoreMotors(character)
     for _, v in ipairs(character:GetDescendants()) do
-        if v:IsA("Motor6D") then
-            v.Enabled = true
-        elseif v:IsA("Constraint") then
-            v.Enabled = false
-        end
+        if v:IsA("Motor6D") then v.Enabled = true
+        elseif v:IsA("Constraint") then v.Enabled = false end
     end
 end
 
@@ -225,15 +184,8 @@ local function InitAntiRagdoll(character)
         end
     end)
     RunService.Stepped:Connect(function()
-        if not Config.AntiRagdoll then
-            Release(character)
-            return
-        end
-        if BlockedStates[hum:GetState()] then
-            ForceNormal(character)
-        else
-            Release(character)
-        end
+        if not Config.AntiRagdoll then Release(character) return end
+        if BlockedStates[hum:GetState()] then ForceNormal(character) else Release(character) end
         hum.Health = hum.MaxHealth
     end)
 end
@@ -246,10 +198,7 @@ local function KillRemote(remote)
         if name:find(key) then
             DisabledRemotes[remote] = {}
             for _, c in ipairs(getconnections(remote.OnClientEvent)) do
-                if c.Disable then
-                    c:Disable()
-                    table.insert(DisabledRemotes[remote], c)
-                end
+                if c.Disable then c:Disable() table.insert(DisabledRemotes[remote], c) end
             end
             break
         end
@@ -262,45 +211,27 @@ local function InitAntiItem()
         local Controls = PlayerModule:GetControls()
         Controls:Enable()
     end)
-
-    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-        KillRemote(obj)
-    end
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do KillRemote(obj) end
     RemoteWatcher = ReplicatedStorage.DescendantAdded:Connect(function(obj)
         if Config.AntiItem then KillRemote(obj) end
     end)
 end
 
-if player.Character then
-    InitAntiRagdoll(player.Character)
-end
-player.CharacterAdded:Connect(function(char)
-    task.wait(0.4)
-    InitAntiRagdoll(char)
-end)
+if player.Character then InitAntiRagdoll(player.Character) end
+player.CharacterAdded:Connect(function(char) task.wait(0.4) InitAntiRagdoll(char) end)
+if Config.AntiItem then task.delay(0.25, InitAntiItem) end
 
-if Config.AntiItem then
-    task.delay(0.25, InitAntiItem)
-end
-
--- ========== GOD MODE ==========
 local function applyGodMode(character, enable)
     if not character then return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
-
     if enable then
         humanoid.MaxHealth = math.huge
         humanoid.Health = humanoid.MaxHealth
         humanoid.BreakJointsOnDeath = false
-
-        local conn
-        conn = humanoid.HealthChanged:Connect(function()
-            if humanoid.Health <= 0 then
-                humanoid.Health = humanoid.MaxHealth
-            end
+        local conn = humanoid.HealthChanged:Connect(function()
+            if humanoid.Health <= 0 then humanoid.Health = humanoid.MaxHealth end
         end)
-
         _G.GodModeConns = _G.GodModeConns or {}
         _G.GodModeConns[character] = conn
     else
@@ -315,16 +246,8 @@ local function setupGodModeForCharacter(character)
     task.wait(0.5)
     applyGodMode(character, Config.GodMode)
 end
-
-if player.Character then
-    setupGodModeForCharacter(player.Character)
-end
+if player.Character then setupGodModeForCharacter(player.Character) end
 player.CharacterAdded:Connect(setupGodModeForCharacter)
-
--- ========== ZK HUB ULTRA ==========
--- PARTE 3 DE 5 - Infinite Jump, Float, Speed Engine e Fly (parte 1)
-
--- ========== INFINITE JUMP ==========
 RunService.Heartbeat:Connect(function()
     if not Config.InfiniteJump then return end
     local char = player.Character
@@ -345,7 +268,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- ========== FLOAT ==========
 local floatPlatform = nil
 local function updateFloat()
     if not Config.Float then
@@ -356,7 +278,6 @@ local function updateFloat()
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     if not floatPlatform then
         floatPlatform = Instance.new("Part")
         floatPlatform.Size = Vector3.new(6, 1, 6)
@@ -367,10 +288,8 @@ local function updateFloat()
     end
     floatPlatform.Position = hrp.Position - Vector3.new(0, Config.FloatHeight, 0)
 end
-
 RunService.Heartbeat:Connect(updateFloat)
 
--- ========== SPEED ENGINE ==========
 local speedConnection = nil
 local function updateSpeedHack()
     if speedConnection then speedConnection:Disconnect() end
@@ -380,7 +299,6 @@ local function updateSpeedHack()
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
-
     speedConnection = RunService.Heartbeat:Connect(function()
         if not Config.SpeedHack or not humanoid or not hrp then return end
         local moveDir = humanoid.MoveDirection
@@ -393,14 +311,9 @@ local function updateSpeedHack()
         end
     end)
 end
-
-player.CharacterAdded:Connect(function()
-    task.wait(0.5)
-    updateSpeedHack()
-end)
+player.CharacterAdded:Connect(function() task.wait(0.5) updateSpeedHack() end)
 updateSpeedHack()
 
--- ========== MÓDULO FLY (variáveis e funções básicas) ==========
 local flyUI = nil
 local flyEnabled = false
 local flySpeed = 50
@@ -422,39 +335,30 @@ end
 local function ativarFly()
     if not flyRootPart or not flyHumanoid then return end
     flyEnabled = true
-
     flyBodyVelocity = Instance.new("BodyVelocity")
     flyBodyVelocity.Velocity = Vector3.new(0,0,0)
     flyBodyVelocity.MaxForce = Vector3.new(5000, 5000, 5000)
     flyBodyVelocity.Parent = flyRootPart
-
     flyBodyGyro = Instance.new("BodyGyro")
     flyBodyGyro.MaxTorque = Vector3.new(5000, 5000, 5000)
     flyBodyGyro.P = 1000
     flyBodyGyro.D = 50
     flyBodyGyro.Parent = flyRootPart
-
     flyConnection = RunService.Heartbeat:Connect(function()
         if not flyEnabled or not flyRootPart or not flyHumanoid then return end
-
         local camera = workspace.CurrentCamera
         local camCF = camera.CFrame
         local moveDirection = flyHumanoid.MoveDirection
-
         if moveDirection.Magnitude > 0 then
             local forwardAmount = moveDirection:Dot(camCF.LookVector)
             local rightAmount = moveDirection:Dot(camCF.RightVector)
             local finalDir = (camCF.LookVector * forwardAmount) + (camCF.RightVector * rightAmount)
-            if finalDir.Magnitude > 0 then
-                finalDir = finalDir.Unit
-            end
+            if finalDir.Magnitude > 0 then finalDir = finalDir.Unit end
             flyBodyVelocity.Velocity = finalDir * flySpeed
         else
             flyBodyVelocity.Velocity = Vector3.new(0,0,0)
         end
-
         flyBodyGyro.CFrame = camCF
-
         if flyMode == "turbo" then
             flyBodyVelocity.Velocity = flyBodyVelocity.Velocity * 1.5
         elseif flyMode == "drift" then
@@ -472,24 +376,14 @@ local function setupFlyCharacter(newCharacter)
     desativarFly()
     flyHumanoid.Died:Connect(desativarFly)
 end
-
-if player.Character then
-    setupFlyCharacter(player.Character)
-end
+if player.Character then setupFlyCharacter(player.Character) end
 player.CharacterAdded:Connect(setupFlyCharacter)
-
--- ========== ZK HUB ULTRA ==========
--- PARTE 4 DE 5 - Fly UI e Sistema de Notificações
-
--- ========== FLY UI ==========
 local function createFlyUI()
     if flyUI then flyUI:Destroy() end
-
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "FlyHub"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = playerGui
-
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 250, 0, 180)
     frame.Position = UDim2.new(0.5, -125, 0.8, -90)
@@ -499,16 +393,13 @@ local function createFlyUI()
     frame.Active = true
     frame.Draggable = true
     frame.Parent = screenGui
-
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(0, 229, 255)
     stroke.Thickness = 2
     stroke.Parent = frame
-
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 20)
     corner.Parent = frame
-
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 35)
     title.Position = UDim2.new(0, 0, 0, 5)
@@ -520,14 +411,12 @@ local function createFlyUI()
     title.TextStrokeColor3 = Color3.fromRGB(160, 32, 240)
     title.TextStrokeTransparency = 0.5
     title.Parent = frame
-
     local line = Instance.new("Frame")
     line.Size = UDim2.new(0.9, 0, 0, 2)
     line.Position = UDim2.new(0.05, 0, 0, 40)
     line.BackgroundColor3 = Color3.fromRGB(0, 229, 255)
     line.BorderSizePixel = 0
     line.Parent = frame
-
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Size = UDim2.new(0.8, 0, 0, 40)
     toggleBtn.Position = UDim2.new(0.1, 0, 0, 50)
@@ -538,16 +427,13 @@ local function createFlyUI()
     toggleBtn.TextScaled = true
     toggleBtn.BorderSizePixel = 0
     toggleBtn.Parent = frame
-
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 20)
     btnCorner.Parent = toggleBtn
-
     local btnStroke = Instance.new("UIStroke")
     btnStroke.Color = Color3.fromRGB(160, 32, 240)
     btnStroke.Thickness = 1.5
     btnStroke.Parent = toggleBtn
-
     local speedLabel = Instance.new("TextLabel")
     speedLabel.Size = UDim2.new(0.8, 0, 0, 20)
     speedLabel.Position = UDim2.new(0.1, 0, 0, 100)
@@ -557,7 +443,6 @@ local function createFlyUI()
     speedLabel.Font = Enum.Font.Gotham
     speedLabel.TextScaled = true
     speedLabel.Parent = frame
-
     local speedValue = Instance.new("TextLabel")
     speedValue.Size = UDim2.new(0, 40, 0, 20)
     speedValue.Position = UDim2.new(0.75, 0, 0, 100)
@@ -567,35 +452,29 @@ local function createFlyUI()
     speedValue.Font = Enum.Font.GothamBold
     speedValue.TextScaled = true
     speedValue.Parent = frame
-
     local sliderBg = Instance.new("Frame")
     sliderBg.Size = UDim2.new(0.8, 0, 0, 15)
     sliderBg.Position = UDim2.new(0.1, 0, 0, 125)
     sliderBg.BackgroundColor3 = Color3.fromRGB(26, 31, 43)
     sliderBg.BorderSizePixel = 0
     sliderBg.Parent = frame
-
     local sliderCorner = Instance.new("UICorner")
     sliderCorner.CornerRadius = UDim.new(0, 8)
     sliderCorner.Parent = sliderBg
-
     local fillBar = Instance.new("Frame")
     fillBar.Size = UDim2.new(0.166, 0, 1, 0)
     fillBar.BackgroundColor3 = Color3.fromRGB(0, 229, 255)
     fillBar.BorderSizePixel = 0
     fillBar.Parent = sliderBg
-
     local fillCorner = Instance.new("UICorner")
     fillCorner.CornerRadius = UDim.new(0, 8)
     fillCorner.Parent = fillBar
-
     local sliderButton = Instance.new("TextButton")
     sliderButton.Size = UDim2.new(1, 0, 1, 0)
     sliderButton.BackgroundTransparency = 1
     sliderButton.Text = ""
     sliderButton.AutoButtonColor = false
     sliderButton.Parent = sliderBg
-
     local function updateSliderFromPosition(position)
         if not position then return end
         local absPos = sliderBg.AbsolutePosition.X
@@ -606,8 +485,6 @@ local function createFlyUI()
         speedValue.Text = tostring(flySpeed)
         fillBar.Size = UDim2.new(rel, 0, 1, 0)
     end
-
-    -- Mouse
     sliderButton.MouseButton1Down:Connect(function(input)
         updateSliderFromPosition(input)
         local moveConn
@@ -624,8 +501,6 @@ local function createFlyUI()
             end
         end)
     end)
-
-    -- Touch
     sliderButton.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             updateSliderFromPosition(input)
@@ -644,13 +519,11 @@ local function createFlyUI()
             end)
         end
     end)
-
     local modeFrame = Instance.new("Frame")
     modeFrame.Size = UDim2.new(0.9, 0, 0, 40)
     modeFrame.Position = UDim2.new(0.05, 0, 0, 150)
     modeFrame.BackgroundTransparency = 1
     modeFrame.Parent = frame
-
     local function createModeButton(icon, mode, xPos)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0, 50, 0, 35)
@@ -662,16 +535,13 @@ local function createFlyUI()
         btn.TextScaled = true
         btn.BorderSizePixel = 0
         btn.Parent = modeFrame
-
         local btnCorner = Instance.new("UICorner")
         btnCorner.CornerRadius = UDim.new(0, 10)
         btnCorner.Parent = btn
-
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(160, 32, 240)
         stroke.Thickness = 1.5
         stroke.Parent = btn
-
         local indicator = Instance.new("Frame")
         indicator.Size = UDim2.new(1, 0, 0, 3)
         indicator.Position = UDim2.new(0, 0, 1, -3)
@@ -680,25 +550,20 @@ local function createFlyUI()
         indicator.BorderSizePixel = 0
         indicator.Visible = (mode == flyMode)
         indicator.Parent = btn
-
         return btn, indicator
     end
-
     local asaBtn, asaInd = createModeButton("🪽", "asa", 0)
     local turboBtn, turboInd = createModeButton("🚀", "turbo", 0.34)
     local driftBtn, driftInd = createModeButton("☁", "drift", 0.68)
-
     local function setMode(mode)
         flyMode = mode
         asaInd.Visible = (mode == "asa")
         turboInd.Visible = (mode == "turbo")
         driftInd.Visible = (mode == "drift")
     end
-
     asaBtn.MouseButton1Click:Connect(function() setMode("asa") end)
     turboBtn.MouseButton1Click:Connect(function() setMode("turbo") end)
     driftBtn.MouseButton1Click:Connect(function() setMode("drift") end)
-
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 25, 0, 25)
     closeBtn.Position = UDim2.new(1, -30, 0, 5)
@@ -709,16 +574,13 @@ local function createFlyUI()
     closeBtn.TextScaled = true
     closeBtn.BorderSizePixel = 0
     closeBtn.Parent = frame
-
     local closeCorner = Instance.new("UICorner")
     closeCorner.CornerRadius = UDim.new(0, 6)
     closeCorner.Parent = closeBtn
-
     closeBtn.MouseButton1Click:Connect(function()
         screenGui:Destroy()
         flyUI = nil
     end)
-
     toggleBtn.MouseButton1Click:Connect(function()
         if not flyRootPart then return end
         if flyEnabled then
@@ -735,7 +597,6 @@ local function createFlyUI()
             if stroke then stroke.Color = Color3.fromRGB(255, 255, 255) end
         end
     end)
-
     local hint = Instance.new("TextLabel")
     hint.Size = UDim2.new(0, 200, 0, 30)
     hint.Position = UDim2.new(0.5, -100, 0.95, -40)
@@ -745,26 +606,19 @@ local function createFlyUI()
     hint.TextScaled = true
     hint.Font = Enum.Font.Gotham
     hint.Parent = screenGui
-
     flyUI = screenGui
     return screenGui
 end
 
 local function toggleFlyFromHub(enable)
     if enable then
-        if not flyUI then
-            createFlyUI()
-        end
+        if not flyUI then createFlyUI() end
     else
-        if flyUI then
-            flyUI:Destroy()
-            flyUI = nil
-        end
+        if flyUI then flyUI:Destroy() flyUI = nil end
         desativarFly()
     end
 end
 
--- ========== SISTEMA DE NOTIFICAÇÕES ==========
 local function Notify(message, duration)
     if not Config.Notifications then return end
     duration = duration or 3
@@ -774,7 +628,6 @@ local function Notify(message, duration)
     notif.ResetOnSpawn = false
     notif.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     notif.DisplayOrder = 2000
-
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 300, 0, 50)
     frame.Position = UDim2.new(0.5, -150, 0, 10)
@@ -782,11 +635,9 @@ local function Notify(message, duration)
     frame.BackgroundTransparency = 0.2
     frame.BorderSizePixel = 0
     frame.Parent = notif
-
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = frame
-
     local text = Instance.new("TextLabel")
     text.Size = UDim2.new(1, -20, 1, 0)
     text.Position = UDim2.new(0, 10, 0, 0)
@@ -797,7 +648,6 @@ local function Notify(message, duration)
     text.Font = Enum.Font.GothamBold
     text.TextXAlignment = Enum.TextXAlignment.Left
     text.Parent = frame
-
     frame:TweenPosition(UDim2.new(0.5, -150, 0, 10), "Out", "Quad", 0.3, true)
     task.wait(duration)
     frame:TweenPosition(UDim2.new(0.5, -150, 0, -60), "Out", "Quad", 0.3, true)
@@ -814,11 +664,6 @@ local function PlaySound()
     sound:Play()
     game:GetService("Debris"):AddItem(sound, 2)
 end
-
--- ========== ZK HUB ULTRA ==========
--- PARTE 5 DE 5 - Interface Principal, Barra Compacta, Toggles e Inicialização
-
--- ========== INTERFACE PRINCIPAL ==========
 local UI = Instance.new("ScreenGui")
 UI.Name = "ZkHubUltra"
 UI.Parent = playerGui
@@ -909,7 +754,6 @@ closeBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
 end)
 
--- Abas
 local tabButtons = {}
 local tabContents = {}
 local tabNames = {"PRINCIPAL", "MOVIMENTO", "VISUAL", "OUTROS"}
@@ -971,7 +815,6 @@ footer.TextSize = 11
 footer.Font = Enum.Font.Gotham
 footer.Parent = mainFrame
 
--- ========== BARRA COMPACTA ==========
 local bar = Instance.new("Frame")
 bar.Size = UDim2.new(0, 120, 0, 40)
 bar.Position = UDim2.new(0, 20, 0, 20)
@@ -1028,14 +871,12 @@ barClose.MouseButton1Click:Connect(function()
     if floatPlatform then floatPlatform:Destroy() end
 end)
 
--- ========== FUNÇÕES AUXILIARES ==========
 local function createToggle(parent, y, text, var, default, callback)
     Config[var] = default
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, -10, 0, 40)
     frame.Position = UDim2.new(0, 5, 0, y)
     frame.BackgroundTransparency = 1
-
     local lbl = Instance.new("TextLabel", frame)
     lbl.Text = text
     lbl.Size = UDim2.new(0.7, 0, 1, 0)
@@ -1044,7 +885,6 @@ local function createToggle(parent, y, text, var, default, callback)
     lbl.TextSize = 16
     lbl.Font = Enum.Font.Gotham
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local btn = Instance.new("TextButton", frame)
     btn.Size = UDim2.new(0, 60, 0, 30)
     btn.Position = UDim2.new(1, -70, 0.5, -15)
@@ -1053,23 +893,16 @@ local function createToggle(parent, y, text, var, default, callback)
     btn.TextColor3 = Color3.new(1,1,1)
     btn.Font = Enum.Font.GothamBold
     btn.BorderSizePixel = 0
-
     local btnCorner = Instance.new("UICorner", btn)
     btnCorner.CornerRadius = UDim.new(0, 6)
-
     btn.MouseButton1Click:Connect(function()
         Config[var] = not Config[var]
         btn.BackgroundColor3 = Config[var] and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
         btn.Text = Config[var] and "ON" or "OFF"
         if callback then callback(Config[var]) end
-        if Config.Notifications then
-            Notify(text .. " " .. (Config[var] and "ativado" or "desativado"))
-        end
-        if Config.SoundEffects then
-            PlaySound()
-        end
+        if Config.Notifications then Notify(text .. " " .. (Config[var] and "ativado" or "desativado")) end
+        if Config.SoundEffects then PlaySound() end
     end)
-
     return 45
 end
 
@@ -1079,7 +912,6 @@ local function createSlider(parent, y, text, var, min, max, default, suffix, cal
     frame.Size = UDim2.new(1, -10, 0, 60)
     frame.Position = UDim2.new(0, 5, 0, y)
     frame.BackgroundTransparency = 1
-
     local lbl = Instance.new("TextLabel", frame)
     lbl.Text = text
     lbl.Size = UDim2.new(0.5, 0, 0, 20)
@@ -1089,7 +921,6 @@ local function createSlider(parent, y, text, var, min, max, default, suffix, cal
     lbl.TextSize = 14
     lbl.Font = Enum.Font.Gotham
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-
     local valLbl = Instance.new("TextLabel", frame)
     valLbl.Size = UDim2.new(0.5, -10, 0, 20)
     valLbl.Position = UDim2.new(0.5, 0, 0, 0)
@@ -1099,7 +930,6 @@ local function createSlider(parent, y, text, var, min, max, default, suffix, cal
     valLbl.TextSize = 14
     valLbl.Font = Enum.Font.GothamBold
     valLbl.TextXAlignment = Enum.TextXAlignment.Right
-
     local bg = Instance.new("Frame", frame)
     bg.Size = UDim2.new(1, 0, 0, 8)
     bg.Position = UDim2.new(0, 0, 0, 25)
@@ -1107,29 +937,24 @@ local function createSlider(parent, y, text, var, min, max, default, suffix, cal
     bg.BorderSizePixel = 0
     local bgCorner = Instance.new("UICorner", bg)
     bgCorner.CornerRadius = UDim.new(0, 4)
-
     local fill = Instance.new("Frame", bg)
     fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
     fill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
     fill.BorderSizePixel = 0
     local fillCorner = Instance.new("UICorner", fill)
     fillCorner.CornerRadius = UDim.new(0, 4)
-
     local sliderBtn = Instance.new("TextButton", bg)
     sliderBtn.Size = UDim2.new(1, 0, 1, 0)
     sliderBtn.BackgroundTransparency = 1
     sliderBtn.Text = ""
     sliderBtn.AutoButtonColor = false
-
     local dragging = false
-
     local function updateFromInput(input)
         if not input or not input.Position then return end
         local pos = input.Position
         local absPos = bg.AbsolutePosition.X
         local absSize = bg.AbsoluteSize.X
-        local rel = (pos.X - absPos) / absSize
-        rel = math.clamp(rel, 0, 1)
+        local rel = math.clamp((pos.X - absPos) / absSize, 0, 1)
         local value = math.floor(min + (max - min) * rel)
         if Config[var] ~= value then
             Config[var] = value
@@ -1138,58 +963,42 @@ local function createSlider(parent, y, text, var, min, max, default, suffix, cal
             if callback then callback(value) end
         end
     end
-
-    -- Mouse
     sliderBtn.MouseButton1Down:Connect(function(input)
         dragging = true
         updateFromInput(input)
     end)
-
     UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             updateFromInput(input)
         end
     end)
-
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
-
-    -- Touch
     sliderBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             updateFromInput(input)
         end
     end)
-
     sliderBtn.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.Touch then
             updateFromInput(input)
         end
     end)
-
     sliderBtn.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
-
-    sliderBtn.MouseLeave:Connect(function()
-        dragging = false
-    end)
-
+    sliderBtn.MouseLeave:Connect(function() dragging = false end)
     return 65
 end
 
--- ========== PREENCHER ABAS ==========
-
--- Aba PRINCIPAL
 local y = 0
 local tab = tabContents["PRINCIPAL"]
-
 local combatTitle = Instance.new("TextLabel", tab)
 combatTitle.Size = UDim2.new(1, -10, 0, 30)
 combatTitle.Position = UDim2.new(0, 5, 0, y)
@@ -1200,17 +1009,11 @@ combatTitle.TextSize = 20
 combatTitle.Font = Enum.Font.GothamBold
 combatTitle.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
 y = y + createToggle(tab, y, "🧱 Wall System", "WallSystem", true, function(v) applyWallSystem(v) end)
 y = y + createToggle(tab, y, "🚫 Anti-Ragdoll", "AntiRagdoll", true)
 y = y + createToggle(tab, y, "🔇 Anti-Item", "AntiItem", true, function(v) if v then InitAntiItem() end end)
-y = y + createToggle(tab, y, "🛡️ God Mode", "GodMode", false, function(v)
-    if player.Character then
-        applyGodMode(player.Character, v)
-    end
-end)
+y = y + createToggle(tab, y, "🛡️ God Mode", "GodMode", false, function(v) if player.Character then applyGodMode(player.Character, v) end end)
 y = y + 5
-
 local advTitle = Instance.new("TextLabel", tab)
 advTitle.Size = UDim2.new(1, -10, 0, 30)
 advTitle.Position = UDim2.new(0, 5, 0, y)
@@ -1221,15 +1024,12 @@ advTitle.TextSize = 20
 advTitle.Font = Enum.Font.GothamBold
 advTitle.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
 y = y + createToggle(tab, y, "🦘 Infinite Jump", "InfiniteJump", true)
 y = y + createToggle(tab, y, "☁️ Float", "Float", false)
 y = y + 5
 
--- Aba MOVIMENTO
 y = 0
 tab = tabContents["MOVIMENTO"]
-
 local speedTitle = Instance.new("TextLabel", tab)
 speedTitle.Size = UDim2.new(1, -10, 0, 30)
 speedTitle.Position = UDim2.new(0, 5, 0, y)
@@ -1240,11 +1040,9 @@ speedTitle.TextSize = 20
 speedTitle.Font = Enum.Font.GothamBold
 speedTitle.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
 y = y + createToggle(tab, y, "⚡ Speed Hack", "SpeedHack", true, function(v) updateSpeedHack() end)
 y = y + createSlider(tab, y, "Velocidade", "SpeedValue", 1, 300, 110, "", function(v) end)
 y = y + 5
-
 local flyTitle = Instance.new("TextLabel", tab)
 flyTitle.Size = UDim2.new(1, -10, 0, 30)
 flyTitle.Position = UDim2.new(0, 5, 0, y)
@@ -1255,12 +1053,8 @@ flyTitle.TextSize = 20
 flyTitle.Font = Enum.Font.GothamBold
 flyTitle.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
-y = y + createToggle(tab, y, "Ativar Fly (mostrar UI)", "FlyEnabled", false, function(v)
-    toggleFlyFromHub(v)
-end)
+y = y + createToggle(tab, y, "Ativar Fly (mostrar UI)", "FlyEnabled", false, function(v) toggleFlyFromHub(v) end)
 y = y + 5
-
 local movTitle2 = Instance.new("TextLabel", tab)
 movTitle2.Size = UDim2.new(1, -10, 0, 30)
 movTitle2.Position = UDim2.new(0, 5, 0, y)
@@ -1271,15 +1065,12 @@ movTitle2.TextSize = 20
 movTitle2.Font = Enum.Font.GothamBold
 movTitle2.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
 y = y + createToggle(tab, y, "🦘 Infinite Jump", "InfiniteJump", true)
 y = y + createToggle(tab, y, "☁️ Float", "Float", false)
 y = y + 5
 
--- Aba VISUAL
 y = 0
 tab = tabContents["VISUAL"]
-
 local espTitle = Instance.new("TextLabel", tab)
 espTitle.Size = UDim2.new(1, -10, 0, 30)
 espTitle.Position = UDim2.new(0, 5, 0, y)
@@ -1290,17 +1081,14 @@ espTitle.TextSize = 20
 espTitle.Font = Enum.Font.GothamBold
 espTitle.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
 y = y + createToggle(tab, y, "ESP Core", "ESPMaster", false)
 y = y + createToggle(tab, y, "📦 Caixas", "ESPBoxes", true)
 y = y + createToggle(tab, y, "🏷️ Nomes", "ESPNames", true)
 y = y + createToggle(tab, y, "📏 Distância", "ESPDistance", true)
 y = y + createToggle(tab, y, "🎨 Cor do Time", "ESPTeamColor", true)
 
--- Aba OUTROS
 y = 0
 tab = tabContents["OUTROS"]
-
 local extraTitle = Instance.new("TextLabel", tab)
 extraTitle.Size = UDim2.new(1, -10, 0, 30)
 extraTitle.Position = UDim2.new(0, 5, 0, y)
@@ -1311,20 +1099,11 @@ extraTitle.TextSize = 20
 extraTitle.Font = Enum.Font.GothamBold
 extraTitle.TextXAlignment = Enum.TextXAlignment.Left
 y = y + 35
-
 y = y + createToggle(tab, y, "📌 Barra Lateral Retrátil", "SidebarRetract", false)
 y = y + createToggle(tab, y, "🔔 Sistema de Notificações", "Notifications", true)
 y = y + createToggle(tab, y, "🎵 Efeitos Sonoros", "SoundEffects", false)
 
--- ========== INICIALIZAÇÃO ==========
-if Config.WallSystem then
-    applyWallSystem(true)
-end
-
-if Config.GodMode and player.Character then
-    applyGodMode(player.Character, true)
-end
-
+if Config.WallSystem then applyWallSystem(true) end
+if Config.GodMode and player.Character then applyGodMode(player.Character, true) end
 Notify("ZK HUB ULTRA carregado com sucesso!", 3)
 print("ZK HUB ULTRA com Fly, God Mode e Barra Compacta iniciado.")
-
